@@ -16,7 +16,7 @@
 #
 # Description   : Host sided script for screenshotting the current reMarkable display
 #
-# Dependencies  : pv, ssh, convert (imagemagick)
+# Dependencies  : pv, ssh, ffmpeg
 #
 # Thanks to https://github.com/canselcik/libremarkable/wiki/Framebuffer-Overview
 
@@ -31,7 +31,7 @@ function usage {
   echo "Arguments:"
   echo -e "output_png\tFile to save screenshot to (default resnap.png)"
   echo -e "-v --version\tDisplay version and exit"
-  echo -e "-i\tpath to ssh pubkey"
+  echo -e "-i\t\tpath to ssh pubkey"
   echo -e "-r\t\tAddress of reMarkable (default 10.11.99.1)"
   echo -e "-h --help\tDisplay usage and exit"
   echo
@@ -74,15 +74,15 @@ while (( "$#" )); do
   esac
 done
 
-# check if imagemagick installed
-hash convert > /dev/null
+# check if ffmpeg installed
+hash ffmpeg > /dev/null
 if [ $? -eq 1 ]
 then
-    echo "Error: Command 'convert' not found.  imagemagick not installed"
+    echo "Error: Command 'ffmpeg' not found."
     exit 1
 fi
 
-# check if imagemagick installed
+# check if pv installed
 hash pv > /dev/null
 if [ $? -eq 1 ]
 then
@@ -93,11 +93,6 @@ fi
 
 # grab framebuffer from reMarkable
 ssh root@$ADDRESS $SSH_OPT "cat /dev/fb0" | $STAT | \
-    convert -depth 16 -size 1408x1872+0 gray:- png:/tmp/resnap.png
-
-# convert generates 3 images for some reason, copy the first to the destination
-if [ -f /tmp/resnap-0.png ]
-then
-    cp /tmp/resnap-0.png "$OUTPUT"
-    rm /tmp/resnap-*.png
-fi
+    ffmpeg -y -loglevel quiet \
+           -f rawvideo -pix_fmt gray16le -s 1408,1872 \
+           -i - -vframes 1 "$OUTPUT"
